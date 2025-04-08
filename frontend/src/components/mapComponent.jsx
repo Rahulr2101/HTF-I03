@@ -5,10 +5,11 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Input } from "@/components/ui/input";
 import { DatePickerDemo } from "@/components/ui/data_picker";
 import { DropdownMenuRadioGroupDemo } from "@/components/ui/dropDown";
-import { ArrowLeftRight, Search, ChevronDown, Check } from 'lucide-react';
+import { ArrowLeftRight, Search, ChevronDown, Check, Zap, Clock, Coins, Leaf } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mapbox } from "./mapbox";
+import MetricCards from './MetricCards';
 
 // Fix leaflet's default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -211,10 +212,13 @@ export default function MapView() {
   ]);
   const [showRecentSearches, setShowRecentSearches] = useState(false);
   
+  // Metrics cards state
+  const [showMetricsCards, setShowMetricsCards] = useState(false);
+  
   // Refs for search input containers
   const fromInputContainerRef = useRef(null);
   const toInputContainerRef = useRef(null);
-  
+
   // Search functionality
   const searchLocation = async (query, setSearchResults) => {
     if (query.trim().length < 2) {
@@ -346,6 +350,9 @@ export default function MapView() {
       // Hide dropdowns
       setShowFromDropdown(false);
       setShowToDropdown(false);
+      
+      // Show metrics cards
+      setShowMetricsCards(true);
     }
   };
   
@@ -433,6 +440,10 @@ export default function MapView() {
         <LocationControl />
         <MapResizeHandler />
       </MapContainer>
+
+      {showMetricsCards && (
+        <MetricCards onClose={() => setShowMetricsCards(false)} />
+      )}
 
       {/* Overlay components */}
       <div className="absolute top-10 left-1/2 transform -translate-x-1/2 min-w-min bg-opacity-80 z-10 bg-white p-4 rounded-lg shadow-lg">
@@ -537,15 +548,14 @@ export default function MapView() {
         )}
         
         {(activeInputId === 'to' || showToDropdown) && toSuggestions.length > 0 && (
-          
           <div className="flex flex-row">
             <SearchResults 
-            suggestions={toSuggestions} 
-            onSelect={handleToSuggestionSelect} 
-            onClear={handleClearSearchResults}
-            title="Destination Search Results"
-            selectedItem={toLocation}
-          />
+              suggestions={toSuggestions} 
+              onSelect={handleToSuggestionSelect} 
+              onClear={handleClearSearchResults}
+              title="Destination Search Results"
+              selectedItem={toLocation}
+            />
             <Mapbox routes={toSuggestions}/>
           </div>
         )}
