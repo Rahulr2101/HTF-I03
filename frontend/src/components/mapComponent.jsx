@@ -8,6 +8,7 @@ import { DropdownMenuRadioGroupDemo } from "@/components/ui/dropDown";
 import { ArrowLeftRight, Search, ChevronDown, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Mapbox } from "./mapbox";
 
 // Fix leaflet's default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -93,7 +94,7 @@ const SearchResults = ({ suggestions, onSelect, onClear, title = "Search Results
   if (!suggestions.length) return null;
   
   return (
-    <Card className="mt-4 p-4 bg-white shadow-md rounded-lg">
+    <Card className="mt-4 p-4 bg-white shadow-md rounded-lg w-2/3">
       <div className="flex justify-between items-center mb-2">
         <h3 className="font-medium text-gray-700">{title}</h3>
         <Button variant="ghost" size="sm" onClick={onClear} className="h-8 text-gray-500 hover:text-gray-700">
@@ -523,23 +524,30 @@ export default function MapView() {
         
         {/* Show search results based on active input or explicitly shown */}
         {(activeInputId === 'from' || showFromDropdown) && fromSuggestions.length > 0 && (
-          <SearchResults 
-            suggestions={fromSuggestions} 
-            onSelect={handleFromSuggestionSelect} 
-            onClear={handleClearSearchResults}
-            title="Origin Search Results"
-            selectedItem={fromLocation}
-          />
+          <div className="flex flex-row">
+            <SearchResults 
+              suggestions={fromSuggestions} 
+              onSelect={handleFromSuggestionSelect} 
+              onClear={handleClearSearchResults}
+              title="Origin Search Results"
+              selectedItem={fromLocation}
+            />
+            <Mapbox routes={fromSuggestions} />
+          </div>
         )}
         
         {(activeInputId === 'to' || showToDropdown) && toSuggestions.length > 0 && (
-          <SearchResults 
+          
+          <div className="flex flex-row">
+            <SearchResults 
             suggestions={toSuggestions} 
             onSelect={handleToSuggestionSelect} 
             onClear={handleClearSearchResults}
             title="Destination Search Results"
             selectedItem={toLocation}
           />
+            <Mapbox routes={toSuggestions}/>
+          </div>
         )}
         
         {/* Show recent searches when no active input and requested */}
