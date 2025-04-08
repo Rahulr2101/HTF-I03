@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Input } from "@/components/ui/input";
 import { DatePickerDemo } from "@/components/ui/data_picker";
 import { DropdownMenuRadioGroupDemo } from "@/components/ui/dropDown";
-import { ArrowLeftRight, Search } from 'lucide-react';
+import { ArrowLeftRight, Search, ChevronDown, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -53,25 +53,6 @@ const LocationControl = () => {
   );
 };
 
-// Search suggestions component
-const LocationSuggestions = ({ suggestions, onSelect, isVisible }) => {
-  if (!isVisible || !suggestions.length) return null;
-  
-  return (
-    <Card className="absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md max-h-60 overflow-auto">
-      {suggestions.map((item, index) => (
-        <div 
-          key={index}
-          className="p-2 hover:bg-gray-100 cursor-pointer"
-          onClick={() => onSelect(item)}
-        >
-          <p className="text-sm">{item.display_name}</p>
-        </div>
-      ))}
-    </Card>
-  );
-};
-
 // Recent searches component
 const RecentSearches = ({ searches, onSelect, onClear }) => {
   if (!searches.length) return null;
@@ -100,6 +81,45 @@ const RecentSearches = ({ searches, onSelect, onClear }) => {
               </span>
             </div>
             <span className="text-xs text-gray-500">{search.date}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+// Search results component with selection state
+const SearchResults = ({ suggestions, onSelect, onClear, title = "Search Results", selectedItem = null }) => {
+  if (!suggestions.length) return null;
+  
+  return (
+    <Card className="mt-4 p-4 bg-white shadow-md rounded-lg">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-medium text-gray-700">{title}</h3>
+        <Button variant="ghost" size="sm" onClick={onClear} className="h-8 text-gray-500 hover:text-gray-700">
+          Clear All
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {suggestions.map((item, index) => (
+          <div 
+            key={index} 
+            className={`flex justify-between items-center p-2 rounded-md hover:bg-gray-100 cursor-pointer ${
+              selectedItem && selectedItem.place_id === item.place_id ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+            }`}
+            onClick={() => onSelect(item)}
+          >
+            <div className="flex items-center">
+              <div className={`mr-2 ${selectedItem && selectedItem.place_id === item.place_id ? 'text-blue-600' : 'text-blue-500'}`}>
+                {selectedItem && selectedItem.place_id === item.place_id ? <Check size={16} /> : <Search size={16} />}
+              </div>
+              <span className="text-sm">
+                {item.display_name}
+              </span>
+            </div>
+            {selectedItem && selectedItem.place_id === item.place_id && (
+              <span className="text-xs text-blue-600 font-medium">Selected</span>
+            )}
           </div>
         ))}
       </div>
@@ -161,21 +181,24 @@ export default function MapView() {
   
   // Form state
   const [fromQuery, setFromQuery] = useState("");
-  const [activeInputId, setActiveInputId] = useState(null); // 'from' or 'to'
-  const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [toQuery, setToQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedContainer, setSelectedContainer] = useState(ContainerType[0]);
   
+  // Active input tracking
+  const [activeInputId, setActiveInputId] = useState(null); // 'from' or 'to'
+  
   // Search suggestions state
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
-  const [isFromSuggestionsOpen, setIsFromSuggestionsOpen] = useState(false);
-  const [isToSuggestionsOpen, setIsToSuggestionsOpen] = useState(false);
   
   // Selected locations
   const [fromLocation, setFromLocation] = useState(null);
   const [toLocation, setToLocation] = useState(null);
+  
+  // Track whether to show dropdowns after selection
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+  const [showToDropdown, setShowToDropdown] = useState(false);
   
   // Map markers
   const [mapMarkers, setMapMarkers] = useState([]);
@@ -185,17 +208,16 @@ export default function MapView() {
     { from: "Shanghai", to: "Rotterdam", date: "2025-04-10" },
     { from: "Singapore", to: "Los Angeles", date: "2025-04-15" }
   ]);
-  const [showSearches, setShowSearches] = useState(false);
+  const [showRecentSearches, setShowRecentSearches] = useState(false);
   
   // Refs for search input containers
   const fromInputContainerRef = useRef(null);
   const toInputContainerRef = useRef(null);
   
   // Search functionality
-  const searchLocation = async (query, setSearchResults, setIsOpen) => {
+  const searchLocation = async (query, setSearchResults) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
-      setIsOpen(false);
       return;
     }
     
@@ -205,8 +227,6 @@ export default function MapView() {
       );
       const data = await response.json();
       setSearchResults(data);
-      console.log("=====",recentSearches)
-      setIsOpen(true);
     } catch (error) {
       console.error('Error searching location:', error);
     }
@@ -227,12 +247,12 @@ export default function MapView() {
   
   // Debounced search functions
   const debouncedFromSearch = debounce(
-    (query) => searchLocation(query, setFromSuggestions, setIsFromSuggestionsOpen), 
+    (query) => searchLocation(query, setFromSuggestions), 
     300
   );
   
   const debouncedToSearch = debounce(
-    (query) => searchLocation(query, setToSuggestions, setIsToSuggestionsOpen), 
+    (query) => searchLocation(query, setToSuggestions), 
     300
   );
   
@@ -241,31 +261,48 @@ export default function MapView() {
     const query = e.target.value;
     setFromQuery(query);
     debouncedFromSearch(query);
+    setShowFromDropdown(true);
   };
   
   const handleToInputChange = (e) => {
     const query = e.target.value;
     setToQuery(query);
     debouncedToSearch(query);
+    setShowToDropdown(true);
   };
   
   // Handle suggestion selection
   const handleFromSuggestionSelect = (item) => {
+    console.log("here",item)
     setFromQuery(item.display_name.split(',')[0]);
     setFromLocation(item);
-    setIsFromSuggestionsOpen(false);
+    // Keep dropdown visible but change active input to null
+    setActiveInputId(null);
+    setShowFromDropdown(true);
     
     // Update map markers
     updateMapMarkers(item, toLocation);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowFromDropdown(false);
+    }, 3000);
   };
   
   const handleToSuggestionSelect = (item) => {
     setToQuery(item.display_name.split(',')[0]);
     setToLocation(item);
-    setIsToSuggestionsOpen(false);
+    // Keep dropdown visible but change active input to null
+    setActiveInputId(null);
+    setShowToDropdown(true);
     
     // Update map markers
     updateMapMarkers(fromLocation, item);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowToDropdown(false);
+    }, 3000);
   };
   
   // Update map markers when locations change
@@ -287,6 +324,7 @@ export default function MapView() {
     }
     setMapMarkers(markers);
   };
+  
   // Handle search button click
   const handleSearch = () => {
     if (fromLocation && toLocation) {
@@ -303,11 +341,15 @@ export default function MapView() {
       
       // Update map to show route
       updateMapMarkers(fromLocation, toLocation);
+      
+      // Hide dropdowns
+      setShowFromDropdown(false);
+      setShowToDropdown(false);
     }
   };
   
   // Handle selection from recent searches
-  const handleSelectSearch = (search) => {
+  const handleSelectRecentSearch = (search) => {
     if (search.fromLocation && search.toLocation) {
       setFromQuery(search.from);
       setToQuery(search.to);
@@ -319,30 +361,25 @@ export default function MapView() {
       setToQuery(search.to);
       // We would need to fetch location data here if not stored
     }
-    setShowSearches(false);
+    setShowRecentSearches(false);
+    setActiveInputId(null);
   };
   
-  const handleClearSearches = () => {
+  const handleClearRecentSearches = () => {
     setRecentSearches([]);
-    setShowSearches(false);
+    setShowRecentSearches(false);
   };
   
-  // Click outside handler for suggestions
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (fromInputContainerRef.current && !fromInputContainerRef.current.contains(event.target)) {
-        setIsFromSuggestionsOpen(false);
-      }
-      if (toInputContainerRef.current && !toInputContainerRef.current.contains(event.target)) {
-        setIsToSuggestionsOpen(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const handleClearSearchResults = () => {
+    if (activeInputId === 'from') {
+      setFromSuggestions([]);
+      setShowFromDropdown(false);
+    } else if (activeInputId === 'to') {
+      setToSuggestions([]);
+      setShowToDropdown(false);
+    }
+    setActiveInputId(null);
+  };
   
   // Toggle locations
   const handleToggleLocations = () => {
@@ -356,6 +393,25 @@ export default function MapView() {
     
     // Update map markers
     updateMapMarkers(toLocation, tempLocation);
+  };
+  
+  // Function to toggle dropdown visibility
+  const toggleFromDropdown = () => {
+    setShowFromDropdown(!showFromDropdown);
+    if (!showFromDropdown) {
+      setActiveInputId('from');
+    } else {
+      setActiveInputId(null);
+    }
+  };
+  
+  const toggleToDropdown = () => {
+    setShowToDropdown(!showToDropdown);
+    if (!showToDropdown) {
+      setActiveInputId('to');
+    } else {
+      setActiveInputId(null);
+    }
   };
 
   return (
@@ -380,23 +436,31 @@ export default function MapView() {
       {/* Overlay components */}
       <div className="absolute top-10 left-1/2 transform -translate-x-1/2 min-w-min bg-opacity-80 z-10 bg-white p-4 rounded-lg shadow-lg">
         <div className="flex flex-row items-center h-min gap-5">
-          {/* From field with suggestions */}
+          {/* From field */}
           <div ref={fromInputContainerRef} className="relative w-52">
-            <Input 
-              type="text" 
-              placeholder="Origin City/Terminal" 
-              value={fromQuery}
-              onChange={handleFromInputChange}
-              onFocus={() => {
-                setIsFromSuggestionsOpen(fromSuggestions.length > 0);
-                setShowSearches(true);
-              }}
-            />
-            <LocationSuggestions 
-              suggestions={fromSuggestions} 
-              onSelect={handleFromSuggestionSelect} 
-              isVisible={isFromSuggestionsOpen}
-            />
+            <div className="flex items-center">
+              <Input 
+                type="text" 
+                placeholder="Origin City/Terminal" 
+                value={fromQuery}
+                onChange={handleFromInputChange}
+                onFocus={() => {
+                  setActiveInputId('from');
+                  if (fromSuggestions.length > 0) {
+                    setShowFromDropdown(true);
+                  }
+                }}
+                className="w-full"
+              />
+              {fromLocation && (
+                <button
+                  onClick={toggleFromDropdown}
+                  className="absolute right-2 p-1 text-gray-500 hover:text-gray-700"
+                >
+                  <ChevronDown size={16} className={showFromDropdown ? "transform rotate-180" : ""} />
+                </button>
+              )}
+            </div>
           </div>
           
           {/* Direction toggle button */}
@@ -407,23 +471,31 @@ export default function MapView() {
             <ArrowLeftRight />
           </div>
           
-          {/* To field with suggestions */}
+          {/* To field */}
           <div ref={toInputContainerRef} className="relative w-52">
-            <Input 
-              type="text" 
-              placeholder="Destination City/Terminal" 
-              value={toQuery}
-              onChange={handleToInputChange}
-              onFocus={() => {
-                setIsToSuggestionsOpen(toSuggestions.length > 0);
-                setShowSearches(false);
-              }}
-            />
-            <LocationSuggestions 
-              suggestions={toSuggestions} 
-              onSelect={handleToSuggestionSelect} 
-              isVisible={isToSuggestionsOpen}
-            />
+            <div className="flex items-center">
+              <Input 
+                type="text" 
+                placeholder="Destination City/Terminal" 
+                value={toQuery}
+                onChange={handleToInputChange}
+                onFocus={() => {
+                  setActiveInputId('to');
+                  if (toSuggestions.length > 0) {
+                    setShowToDropdown(true);
+                  }
+                }}
+                className="w-full"
+              />
+              {toLocation && (
+                <button
+                  onClick={toggleToDropdown}
+                  className="absolute right-2 p-1 text-gray-500 hover:text-gray-700"
+                >
+                  <ChevronDown size={16} className={showToDropdown ? "transform rotate-180" : ""} />
+                </button>
+              )}
+            </div>
           </div>
           
           {/* Date picker */}
@@ -449,12 +521,33 @@ export default function MapView() {
           </div>
         </div>
         
-        {showSearches && (
+        {/* Show search results based on active input or explicitly shown */}
+        {(activeInputId === 'from' || showFromDropdown) && fromSuggestions.length > 0 && (
+          <SearchResults 
+            suggestions={fromSuggestions} 
+            onSelect={handleFromSuggestionSelect} 
+            onClear={handleClearSearchResults}
+            title="Origin Search Results"
+            selectedItem={fromLocation}
+          />
+        )}
         
+        {(activeInputId === 'to' || showToDropdown) && toSuggestions.length > 0 && (
+          <SearchResults 
+            suggestions={toSuggestions} 
+            onSelect={handleToSuggestionSelect} 
+            onClear={handleClearSearchResults}
+            title="Destination Search Results"
+            selectedItem={toLocation}
+          />
+        )}
+        
+        {/* Show recent searches when no active input and requested */}
+        {!activeInputId && !showFromDropdown && !showToDropdown && showRecentSearches && recentSearches.length > 0 && (
           <RecentSearches 
-            searches={fromSuggestions} 
-            onSelect={handleSelectSearch} 
-            onClear={handleClearSearches} 
+            searches={recentSearches} 
+            onSelect={handleSelectRecentSearch} 
+            onClear={handleClearRecentSearches} 
           />
         )}
       </div>
