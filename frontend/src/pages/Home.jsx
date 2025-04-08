@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SimpleSidebar } from "@/components/SimpleSidebar";
 import MapView from "@/components/mapComponent";
+import { DashboardLayout } from "./Dashboard";
 
 export default function Home() {
   const [selectedView, setSelectedView] = useState("Models");
@@ -14,7 +15,7 @@ export default function Home() {
   const renderContent = () => {
     switch (selectedView) {
       case "Playground":
-        return <div className="p-8"><h1 className="text-3xl font-bold">Playground</h1></div>;
+        return <DashboardLayout/>;
       case "Models":
         return <MapView />;
       case "Documentation":

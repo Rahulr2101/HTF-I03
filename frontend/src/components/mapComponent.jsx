@@ -9,6 +9,7 @@ import { ArrowLeftRight, Search, ChevronDown, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mapbox } from "./mapbox";
+import MetricCards from "./metric";
 
 // Fix leaflet's default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -18,41 +19,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
 });
 
-// Map location control
-const LocationControl = () => {
-  const map = useMap();
-  
-  const handleClick = () => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        map.flyTo([latitude, longitude], 13);
-      },
-      (error) => {
-        console.error("Error getting user location:", error);
-      }
-    );
-  };
-  
-  return (
-    <div className="absolute right-4 top-4 bg-white p-2 rounded-md shadow-md z-400">
-      <Button onClick={handleClick} variant="ghost" size="icon" className="h-8 w-8">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <circle cx="12" cy="12" r="4" />
-          <line x1="12" y1="2" x2="12" y2="6" />
-          <line x1="12" y1="18" x2="12" y2="22" />
-          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-          <line x1="2" y1="12" x2="6" y2="12" />
-          <line x1="18" y1="12" x2="22" y2="12" />
-          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-        </svg>
-      </Button>
-    </div>
-  );
-};
 
 // Recent searches component
 const RecentSearches = ({ searches, onSelect, onClear }) => {
@@ -422,7 +388,7 @@ export default function MapView() {
         center={defaultPosition}
         zoom={13}
         scrollWheelZoom={true}
-        className="h-full w-full z-0"
+        className="min-h w-full z-0"
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
@@ -430,15 +396,17 @@ export default function MapView() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapMarkers markers={mapMarkers} />
-        <LocationControl />
+
         <MapResizeHandler />
       </MapContainer>
-
+      <MetricCards />
       {/* Overlay components */}
       <div className="absolute top-10 left-1/2 transform -translate-x-1/2 min-w-min bg-opacity-80 z-10 bg-white p-4 rounded-lg shadow-lg">
         <div className="flex flex-row items-center h-min gap-5">
           {/* From field */}
+          
           <div ref={fromInputContainerRef} className="relative w-52">
+            
             <div className="flex items-center">
               <Input 
                 type="text" 
@@ -463,7 +431,7 @@ export default function MapView() {
               )}
             </div>
           </div>
-          
+         
           {/* Direction toggle button */}
           <div 
             className="bg-white rounded-2xl p-2 text-gray-600 cursor-pointer hover:bg-gray-100"
@@ -471,9 +439,9 @@ export default function MapView() {
           >
             <ArrowLeftRight />
           </div>
-          
           {/* To field */}
           <div ref={toInputContainerRef} className="relative w-52">
+            
             <div className="flex items-center">
               <Input 
                 type="text" 
